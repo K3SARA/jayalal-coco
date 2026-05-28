@@ -1,0 +1,205 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+model User {
+  id           Int      @id @default(autoincrement())
+  username     String   @unique
+  passwordHash String
+  role         String   @default("ADMIN")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+model BusinessSettings {
+  id            Int      @id @default(1)
+  name          String   @default("JAYALAL COCO")
+  ownerName     String   @default("R C JAYALAL")
+  address1      String   @default("374, HEMUDAWA")
+  address2      String   @default("SADALANKAWA")
+  phone1        String   @default("031-2297165")
+  phone2        String   @default("0766184030")
+  phone3        String   @default("0782718584")
+  phone4        String   @default("0716184030")
+  regNumber     String   @default("")
+  secondaryName String   @default("JS COCO Products")
+  logoUrl       String?
+  footerText    String   @default("Thank You. Come Again!")
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model ReceiptSettings {
+  id                     Int      @id @default(1)
+  showLogo               Boolean  @default(true)
+  showBusinessName       Boolean  @default(true)
+  showOwnerName          Boolean  @default(true)
+  showAddress            Boolean  @default(true)
+  showPhoneNumbers       Boolean  @default(true)
+  showRegistrationNumber Boolean  @default(true)
+  showCustomerName       Boolean  @default(true)
+  showVehicleNumber      Boolean  @default(true)
+  showProduct            Boolean  @default(true)
+  showFirstWeight        Boolean  @default(true)
+  showSecondWeight       Boolean  @default(true)
+  showNetWeight          Boolean  @default(true)
+  showDriverName         Boolean  @default(true)
+  showOperatorName       Boolean  @default(true)
+  showCustomerSignature  Boolean  @default(true)
+  showDriverSignature    Boolean  @default(true)
+  showDateTime           Boolean  @default(true)
+  showFooter             Boolean  @default(true)
+  createdAt              DateTime @default(now())
+  updatedAt              DateTime @updatedAt
+}
+
+model Customer {
+  id             Int             @id @default(autoincrement())
+  name           String
+  phone          String?
+  address        String?
+  type           String          // CUSTOMER, SUPPLIER, BOTH
+  openingBalance Float           @default(0.0)
+  currentBalance Float           @default(0.0)
+  notes          String?
+  isActive       Boolean         @default(true)
+  createdAt      DateTime        @default(now())
+  updatedAt      DateTime        @updatedAt
+  coconutEntries CoconutEntry[]
+  cocoHuskEntries CocoHuskEntry[]
+  ledgerEntries  LedgerEntry[]
+  payments       Payment[]
+}
+
+model Batch {
+  id              Int             @id @default(autoincrement())
+  batchNumber     String          @unique
+  batchType       String          // COCONUT, COCO_HUSK
+  name            String
+  startDate       DateTime
+  endDate         DateTime?
+  status          String          // ACTIVE, CLOSED, WAITING_PAYMENT, PAID
+  notes           String?
+  createdAt       DateTime        @default(now())
+  updatedAt       DateTime        @updatedAt
+  coconutEntries  CoconutEntry[]
+  cocoHuskEntries CocoHuskEntry[]
+  expenses        Expense[]
+  ledgerEntries   LedgerEntry[]
+}
+
+model CoconutEntry {
+  id             Int           @id @default(autoincrement())
+  receiptNumber  String        @unique
+  batchId        Int
+  batch          Batch         @relation(fields: [batchId], references: [id])
+  date           DateTime
+  customerId     Int
+  customer       Customer      @relation(fields: [customerId], references: [id])
+  vehicleNumber  String?
+  productName    String        @default("Coconut")
+  firstWeight    Float
+  secondWeight   Float
+  netWeight      Float
+  ratePerKg      Float?
+  totalAmount    Float         @default(0.0)
+  transportCost  Float         @default(0.0)
+  otherExpenses  Float         @default(0.0)
+  operatorName   String?
+  driverName     String?
+  notes          String?
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+  payments       Payment[]
+  ledgerEntries  LedgerEntry[]
+}
+
+model CocoHuskEntry {
+  id                   Int           @id @default(autoincrement())
+  receiptNumber        String        @unique
+  batchId              Int
+  batch                Batch         @relation(fields: [batchId], references: [id])
+  date                 DateTime
+  customerId           Int
+  customer             Customer      @relation(fields: [customerId], references: [id])
+  vehicleNumber        String?
+  firstWeight          Float         @default(0.0)
+  secondWeight         Float         @default(0.0)
+  huskCount            Float
+  ratePerHusk          Float
+  totalHuskAmount      Float
+  totalWeightKg        Float
+  averageWeightPer1000 Float
+  cuttingLabourCost    Float         @default(0.0)
+  dryingLabourCost     Float         @default(0.0)
+  transportCost        Float         @default(0.0)
+  otherExpense         Float         @default(0.0)
+  totalExpense         Float
+  expectedIncome       Float         @default(0.0)
+  receivedIncome       Float         @default(0.0)
+  paymentDueDate       DateTime
+  paymentStatus        String        @default("PENDING") // PENDING, PARTIAL, PAID, OVERDUE
+  profitLoss           Float
+  notes                String?
+  createdAt            DateTime      @default(now())
+  updatedAt            DateTime      @updatedAt
+  payments             Payment[]
+  ledgerEntries        LedgerEntry[]
+}
+
+model Expense {
+  id          Int      @id @default(autoincrement())
+  batchId     Int
+  batch       Batch    @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  expenseType String   // කපන්න කුලිය, වේලන කුලිය, Transport, Labour, Loading, Unloading, Other
+  amount      Float
+  date        DateTime
+  description String?
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+model Payment {
+  id              Int            @id @default(autoincrement())
+  amount          Float
+  date            DateTime
+  paymentMethod   String         @default("CASH") // CASH, CHEQUE, BANK_TRANSFER
+  notes           String?
+  customerId      Int
+  customer        Customer       @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  coconutEntryId  Int?
+  coconutEntry    CoconutEntry?  @relation(fields: [coconutEntryId], references: [id], onDelete: Cascade)
+  cocoHuskEntryId Int?
+  cocoHuskEntry   CocoHuskEntry? @relation(fields: [cocoHuskEntryId], references: [id], onDelete: Cascade)
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}
+
+model LedgerEntry {
+  id              Int            @id @default(autoincrement())
+  partyId         Int
+  customer        Customer       @relation(fields: [partyId], references: [id], onDelete: Cascade)
+  partyType       String         // CUSTOMER | SUPPLIER | BOTH
+  transactionType String         // SALE | PURCHASE | PAYMENT_RECEIVED | PAYMENT_MADE | ADJUSTMENT
+  debit           Float          @default(0.0)
+  credit          Float          @default(0.0)
+  amount          Float          @default(0.0)
+  description     String?
+  relatedBatchId  Int?
+  batch           Batch?         @relation(fields: [relatedBatchId], references: [id], onDelete: SetNull)
+  coconutEntryId  Int?
+  coconutEntry    CoconutEntry?  @relation(fields: [coconutEntryId], references: [id], onDelete: Cascade)
+  cocoHuskEntryId Int?
+  cocoHuskEntry   CocoHuskEntry? @relation(fields: [cocoHuskEntryId], references: [id], onDelete: Cascade)
+  balanceAfter    Float
+  createdAt       DateTime       @default(now())
+  updatedAt       DateTime       @updatedAt
+}

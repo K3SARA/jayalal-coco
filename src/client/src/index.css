@@ -1,0 +1,110 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply text-slate-800 antialiased;
+  }
+}
+
+/* Scrollbar styling */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  @apply bg-slate-100;
+}
+::-webkit-scrollbar-thumb {
+  @apply bg-slate-300 rounded-full hover:bg-slate-400;
+}
+
+/* Glassmorphism utilities */
+.glass {
+  background: rgba(255, 255, 255, 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.25);
+}
+
+.dark-glass {
+  background: rgba(15, 23, 42, 0.9);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* PRINT STYLES */
+@media print {
+  /* Hide normal layout */
+  body * {
+    visibility: hidden;
+  }
+  
+  /* Show only the print container */
+  #print-area, #print-area * {
+    visibility: visible;
+  }
+  
+  #print-area {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 0;
+  }
+
+  /* Thermal 80mm Receipt Styles */
+  .thermal-receipt {
+    width: 80mm;
+    max-width: 80mm;
+    padding: 2mm;
+    font-size: 11px;
+    line-height: 1.25;
+    color: #000;
+    background: #fff;
+    font-family: 'Courier New', Courier, monospace;
+  }
+  
+  .thermal-receipt th, .thermal-receipt td {
+    font-size: 11px;
+    padding: 1px 0;
+  }
+  
+  /* A4 Receipt Styles */
+  .a4-receipt {
+    width: 210mm;
+    height: 297mm;
+    padding: 15mm;
+    color: #000;
+    background: #fff;
+    font-family: 'Inter', sans-serif;
+  }
+
+  /* Force page breaks or dimensions */
+  @page {
+    margin: 0;
+  }
+}
+
+/* Preview Print styles inside application */
+.preview-thermal {
+  width: 80mm;
+  font-family: 'Courier New', Courier, monospace;
+  color: #000;
+  background: #fff;
+  border: 1px dashed #cbd5e1;
+  box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1);
+}
+
+.preview-a4 {
+  width: 210mm;
+  min-height: 297mm;
+  color: #000;
+  background: #fff;
+  border: 1px solid #e2e8f0;
+  box-shadow: 0 10px 15px -3px rgb(0 0 0 / 0.1);
+}
