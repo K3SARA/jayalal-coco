@@ -3,6 +3,21 @@ const bcrypt = require('bcryptjs');
 
 const prisma = new PrismaClient();
 
+async function findOrCreateCustomer(data) {
+  const existingCustomer = await prisma.customer.findFirst({
+    where: {
+      name: data.name,
+      phone: data.phone,
+    },
+  });
+
+  if (existingCustomer) {
+    return existingCustomer;
+  }
+
+  return prisma.customer.create({ data });
+}
+
 async function main() {
   console.log('Seeding database...');
 
@@ -69,46 +84,42 @@ async function main() {
   console.log('Receipt settings seeded');
 
   // 4. Sample Customers
-  const customer1 = await prisma.customer.create({
-    data: {
-      name: 'Sunil Perera',
-      phone: '0771234567',
-      address: 'Negombo Road, Dankotuwa',
-      type: 'CUSTOMER',
-      openingBalance: 0.0,
-      currentBalance: 0.0, // Will be updated by entries
-      notes: 'Regular coconut buyer',
-    },
+  const customer1 = await findOrCreateCustomer({
+    name: 'Sunil Perera',
+    phone: '0771234567',
+    address: 'Negombo Road, Dankotuwa',
+    type: 'CUSTOMER',
+    openingBalance: 0.0,
+    currentBalance: 0.0, // Will be updated by entries
+    notes: 'Regular coconut buyer',
   });
 
-  const supplier1 = await prisma.customer.create({
-    data: {
-      name: 'Kamal Silva',
-      phone: '0717654321',
-      address: 'Kuliyapitiya',
-      type: 'SUPPLIER',
-      openingBalance: 0.0,
-      currentBalance: 0.0, // Will be updated by entries
-      notes: 'Reliable raw coco husk supplier',
-    },
+  await findOrCreateCustomer({
+    name: 'Kamal Silva',
+    phone: '0717654321',
+    address: 'Kuliyapitiya',
+    type: 'SUPPLIER',
+    openingBalance: 0.0,
+    currentBalance: 0.0, // Will be updated by entries
+    notes: 'Reliable raw coco husk supplier',
   });
 
-  const bothParty = await prisma.customer.create({
-    data: {
-      name: 'Nimal Jayasinghe',
-      phone: '0783456789',
-      address: 'Sadalankawa',
-      type: 'BOTH',
-      openingBalance: 0.0,
-      currentBalance: 0.0,
-      notes: 'Supplies husks and buys finished fibers',
-    },
+  await findOrCreateCustomer({
+    name: 'Nimal Jayasinghe',
+    phone: '0783456789',
+    address: 'Sadalankawa',
+    type: 'BOTH',
+    openingBalance: 0.0,
+    currentBalance: 0.0,
+    notes: 'Supplies husks and buys finished fibers',
   });
   console.log('Sample customers seeded');
 
   // 5. Sample Batches
-  const coconutBatch = await prisma.batch.create({
-    data: {
+  await prisma.batch.upsert({
+    where: { batchNumber: 'B-2026-COCO-001' },
+    update: {},
+    create: {
       batchNumber: 'B-2026-COCO-001',
       batchType: 'COCONUT',
       name: 'Coconut Lot A - May 2026',
@@ -118,8 +129,10 @@ async function main() {
     },
   });
 
-  const huskBatch = await prisma.batch.create({
-    data: {
+  const huskBatch = await prisma.batch.upsert({
+    where: { batchNumber: 'B-2026-HUSK-001' },
+    update: {},
+    create: {
       batchNumber: 'B-2026-HUSK-001',
       batchType: 'COCO_HUSK',
       name: 'Husk Lot A - May 2026',
@@ -136,6 +149,16 @@ async function main() {
 
   const dueDate = new Date(entryDate);
   dueDate.setDate(dueDate.getDate() + 21); // 21 days from entry date
+
+  const existingHuskEntry = await prisma.cocoHuskEntry.findUnique({
+    where: { receiptNumber: 'REC-HUSK-2026-0001' },
+  });
+
+  if (existingHuskEntry) {
+    console.log('Sample Husk entry already exists, skipping related payment and ledger entries.');
+    console.log('Database seeding finished.');
+    return;
+  }
 
   const huskEntry = await prisma.cocoHuskEntry.create({
     data: {
