@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "concurrently \"npm run server\" \"npm run client\"",
     "server": "nodemon src/server/index.js",
-    "client": "vite",
+    "client": "vite --host",
     "build": "vite build",
     "start": "npx prisma migrate deploy && node src/server/index.js",
     "preview": "vite preview",

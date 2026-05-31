@@ -13,6 +13,7 @@ import Expenses from './pages/Expenses';
 import Reports from './pages/Reports';
 import ReceiptSettings from './pages/ReceiptSettings';
 import BusinessSettings from './pages/BusinessSettings';
+import Billing from './pages/Billing';
 
 // Protected Route Guard helper
 const ProtectedRoute = ({ children }) => {
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="payments" element={<Payments />} />
           <Route path="expenses" element={<Expenses />} />
           <Route path="reports" element={<Reports />} />
+          <Route path="billing" element={<Billing />} />
           <Route path="settings/receipt" element={<ReceiptSettings />} />
           <Route path="settings/business" element={<BusinessSettings />} />
         </Route>

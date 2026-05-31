@@ -1853,4 +1853,228 @@ router.get('/reports/payments', async (req, res) => {
   }
 });
 
+
+// ----------------------------------------------------
+// 10. QUICK BILLING INVOICE ENDPOINTS
+// ----------------------------------------------------
+
+// GET /api/invoices
+router.get('/invoices', async (req, res) => {
+  try {
+    const invoices = await prisma.invoice.findMany({
+      include: { customer: true },
+      orderBy: { date: 'desc' }
+    });
+    res.json(invoices);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// GET /api/invoices/:id
+router.get('/invoices/:id', async (req, res) => {
+  try {
+    const invoice = await prisma.invoice.findUnique({
+      where: { id: parseInt(req.params.id) },
+      include: { customer: true }
+    });
+    if (!invoice) return res.status(404).json({ error: 'Invoice not found' });
+    res.json(invoice);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/invoices
+router.post('/invoices', authenticateToken, async (req, res) => {
+  try {
+    const {
+      date, customerId, customerName, items, subTotal,
+      discountPercent, discountAmount, taxPercent, taxAmount,
+      totalAmount, paymentMethod, notes
+    } = req.body;
+
+    if (!customerId || !items || items.length === 0 || !totalAmount) {
+      return res.status(400).json({ error: 'Customer, items, and total amount are required.' });
+    }
+
+    const customer = await prisma.customer.findUnique({ where: { id: parseInt(customerId) } });
+    if (!customer) return res.status(400).json({ error: 'Customer not found.' });
+
+    const invoiceDate = date ? new Date(date) : new Date();
+
+    // Generate unique invoice number
+    const count = await prisma.invoice.count();
+    const dateStr = invoiceDate.toISOString().slice(0, 10).replace(/-/g, '');
+    const invoiceNumber = `INV-${dateStr}-${1000 + count + 1}`;
+
+    // Save the Invoice
+    const invoice = await prisma.invoice.create({
+      data: {
+        invoiceNumber,
+        date: invoiceDate,
+        customerId: parseInt(customerId),
+        customerName: customerName || customer.name,
+        itemsJson: JSON.stringify(items),
+        subTotal: parseFloat(subTotal) || 0,
+        discountPercent: parseFloat(discountPercent) || 0,
+        discountAmount: parseFloat(discountAmount) || 0,
+        taxPercent: parseFloat(taxPercent) || 0,
+        taxAmount: parseFloat(taxAmount) || 0,
+        totalAmount: parseFloat(totalAmount),
+        paymentMethod: paymentMethod || 'CASH',
+        notes: notes || ''
+      }
+    });
+
+    const entryPartyType = customer.type === 'SUPPLIER' ? 'SUPPLIER' : 'CUSTOMER';
+
+    // 1. Create Ledger Entry for the Sale
+    await prisma.ledgerEntry.create({
+      data: {
+        partyId: customer.id,
+        partyType: entryPartyType,
+        transactionType: 'SALE',
+        debit: parseFloat(totalAmount),
+        credit: 0,
+        amount: parseFloat(totalAmount),
+        description: `Quick Invoice Sale: ${invoiceNumber}`,
+        invoiceId: invoice.id,
+        balanceAfter: 0.0, // calculated below
+        createdAt: invoiceDate
+      }
+    });
+
+    // 2. If CASH, also create a Payment and Ledger Entry for Payment Received
+    if (paymentMethod === 'CASH') {
+      const payment = await prisma.payment.create({
+        data: {
+          amount: parseFloat(totalAmount),
+          date: invoiceDate,
+          paymentMethod: 'CASH',
+          notes: `Full payment for Invoice: ${invoiceNumber}`,
+          customerId: customer.id,
+          createdAt: invoiceDate
+        }
+      });
+
+      await prisma.ledgerEntry.create({
+        data: {
+          partyId: customer.id,
+          partyType: entryPartyType,
+          transactionType: 'PAYMENT_RECEIVED',
+          debit: 0,
+          credit: parseFloat(totalAmount),
+          amount: parseFloat(totalAmount),
+          description: `Cash payment received for Invoice: ${invoiceNumber}`,
+          invoiceId: invoice.id,
+          balanceAfter: 0.0, // calculated below
+          createdAt: invoiceDate
+        }
+      });
+    }
+
+    // Recalculate Ledger for this customer
+    await recalculateCustomerLedger(customer.id);
+
+    res.status(201).json(invoice);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/invoices/:id
+router.delete('/invoices/:id', authenticateToken, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const inv = await prisma.invoice.findUnique({ where: { id } });
+    if (!inv) return res.status(404).json({ error: 'Invoice not found' });
+
+    // delete payment if any
+    await prisma.payment.deleteMany({
+      where: {
+        customerId: inv.customerId,
+        notes: { contains: inv.invoiceNumber }
+      }
+    });
+
+    // delete the invoice itself (cascades to ledger entries)
+    await prisma.invoice.delete({ where: { id } });
+
+    // recalculate customer balance
+    await recalculateCustomerLedger(inv.customerId);
+
+    res.json({ success: true, message: 'Invoice and associated entries deleted.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// ----------------------------------------------------
+// 11. QUICK BILLING ITEM/PRODUCT ENDPOINTS
+// ----------------------------------------------------
+
+// GET /api/invoice-products
+router.get('/invoice-products', async (req, res) => {
+  try {
+    const products = await prisma.invoiceProduct.findMany({
+      orderBy: { name: 'asc' }
+    });
+    res.json(products);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// POST /api/invoice-products
+router.post('/invoice-products', authenticateToken, async (req, res) => {
+  try {
+    const { name, unit, defaultRate } = req.body;
+    if (!name) return res.status(400).json({ error: 'Product name is required.' });
+
+    const product = await prisma.invoiceProduct.create({
+      data: {
+        name,
+        unit: unit || 'Unit',
+        defaultRate: parseFloat(defaultRate) || 0.0
+      }
+    });
+    res.status(201).json(product);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// PUT /api/invoice-products/:id
+router.put('/invoice-products/:id', authenticateToken, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    const { name, unit, defaultRate } = req.body;
+
+    const product = await prisma.invoiceProduct.update({
+      where: { id },
+      data: {
+        name,
+        unit,
+        defaultRate: parseFloat(defaultRate) || 0.0
+      }
+    });
+    res.json(product);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
+// DELETE /api/invoice-products/:id
+router.delete('/invoice-products/:id', authenticateToken, async (req, res) => {
+  try {
+    const id = parseInt(req.params.id);
+    await prisma.invoiceProduct.delete({ where: { id } });
+    res.json({ success: true, message: 'Billing product deleted.' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+});
+
 module.exports = router;
+

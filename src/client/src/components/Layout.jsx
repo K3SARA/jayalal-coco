@@ -51,6 +51,7 @@ export default function Layout() {
 
   const navItems = [
     { name: 'Dashboard', path: '/', icon: LayoutDashboard },
+    { name: 'Quick Billing / බිල්පත්', path: '/billing', icon: Receipt },
     { name: 'පොල් / Coconut', path: '/coconut', icon: CircleDot },
     { name: 'පොල් ලෙලි / Coco Husk', path: '/husk', icon: Layers },
     { name: 'Batches / ගොඩවල්', path: '/batches', icon: Layers },

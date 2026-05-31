@@ -77,6 +77,7 @@ model Customer {
   cocoHuskEntries CocoHuskEntry[]
   ledgerEntries  LedgerEntry[]
   payments       Payment[]
+  invoices       Invoice[]
 }
 
 model Batch {
@@ -199,7 +200,40 @@ model LedgerEntry {
   coconutEntry    CoconutEntry?  @relation(fields: [coconutEntryId], references: [id], onDelete: Cascade)
   cocoHuskEntryId Int?
   cocoHuskEntry   CocoHuskEntry? @relation(fields: [cocoHuskEntryId], references: [id], onDelete: Cascade)
+  invoiceId       Int?
+  invoice         Invoice?       @relation(fields: [invoiceId], references: [id], onDelete: Cascade)
   balanceAfter    Float
   createdAt       DateTime       @default(now())
   updatedAt       DateTime       @updatedAt
 }
+
+model Invoice {
+  id              Int           @id @default(autoincrement())
+  invoiceNumber   String        @unique
+  date            DateTime      @default(now())
+  customerId      Int
+  customer        Customer      @relation(fields: [customerId], references: [id], onDelete: Cascade)
+  customerName    String
+  itemsJson       String        // Serialized JSON array of items: [{name, qty, unit, rate, total}]
+  subTotal        Float
+  discountPercent Float         @default(0.0)
+  discountAmount  Float         @default(0.0)
+  taxPercent      Float         @default(0.0)
+  taxAmount       Float         @default(0.0)
+  totalAmount     Float
+  paymentMethod   String        @default("CASH") // CASH, CREDIT
+  notes           String?
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  ledgerEntries   LedgerEntry[]
+}
+
+model InvoiceProduct {
+  id          Int      @id @default(autoincrement())
+  name        String   @unique
+  unit        String   @default("Unit")
+  defaultRate Float    @default(0.0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
